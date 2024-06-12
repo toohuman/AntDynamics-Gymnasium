@@ -1,0 +1,18 @@
+{
+    "task":"ant_dynamics",
+    "maxGen": 512,
+    "popSize": 32,
+    "alg_speciate": "none",
+    "alg_act": 0,
+    "alg_nReps": 3,
+    "prob_initEnable": 0.7,
+    "prob_addConn": 0.45,
+    "prob_addNode": 0.33,
+    "prob_enable": 0.1,
+    "prob_mutAct": 0.05,
+    "alg_probMoo": 0.4,
+    "prob_crossover": 0.0,
+    "select_eliteRatio": 0.05,
+    "select_tournSize": 4,
+    "bestReps": 16
+}
