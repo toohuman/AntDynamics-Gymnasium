@@ -20,8 +20,12 @@ formatter = logging.Formatter('%(asctime)s [%(levelname)s] In %(pathname)s:%(lin
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-DATA_DIRECTORY = "../data/2023_2/"    # Relative path from the program being called
-# DATA_DIRECTORY = "../../data/2023_2/"    # For the relative path when training
+if __name__ == "__main__":
+    # Relative path durving development
+    DATA_DIRECTORY = "../data/2023_2/"
+else:
+    # Relative path when training
+    DATA_DIRECTORY = "data/2023_2/"
 
 VIDEO_FPS = 60     # Source data FPS (60Hz)
 SIM_FPS = 30    # Simulation environment FPS
