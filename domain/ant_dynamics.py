@@ -44,11 +44,11 @@ TIMESTEP = 1./SIM_FPS       # Not sure if this will be necessary, given the fixe
 TIME_LIMIT = SIM_FPS * 30   # 60 seconds
 
 ANT_DIM = vec2d(5, 5)
-AGENT_SPEED = 20*3.25       # Taken from slimevolley, will need to adjust based on feeling
-TURN_RATE = 140 * 2 * math.pi / 360
+AGENT_SPEED = 25*3.25       # Taken from slimevolley, will need to adjust based on feeling
+TURN_RATE = 200 * 2 * math.pi / 360
 VISION_RANGE = 100  # No idea what is a reasonable value for this.
 
-DRAW_ANT_VISION = True
+DRAW_ANT_VISION = False
 vision_segments = [
     # Front arc: Directly in front of the agent
     ((-math.pi / 2, -3*math.pi / 10), (180, 100, 100)),
@@ -64,7 +64,7 @@ vision_segments = [
     ((-5 * math.pi / 6, -math.pi / 2), (180, 180, 190)),
 ]
 
-REWARD_TYPE = 'action'
+REWARD_TYPE = 'action' # 'trail', 'action'
 TRACK_TRAIL = 'all' # 'all', 'fade', 'none'
 MOVEMENT_THRESHOLD = 10
 FADE_DURATION = 5 # seconds
@@ -95,9 +95,7 @@ def process_data(data, arena_dim):
     arena_bb = find_bounding_box(data)
     origin_arena = calculate_circle(*arena_bb)
 
-    translation, scale = circle_transformation(
-        origin_arena, arena_dim
-    )
+    translation, scale = circle_transformation(origin_arena, arena_dim)
 
     logger.info(msg=f"Processing data now. This will take a while...")
     apply_transform_scale(data, translation, scale)
@@ -175,21 +173,21 @@ def circle_transformation(circle_a, circle_b):
     Returns:
     tuple: A tuple containing the translation vector (dx, dy) and the scaling factor.
     """
-    SF = 0.99
+    scale_factor = 0.99
     (x_a, y_a), r_a = circle_a
     (x_b, y_b), r_b = circle_b
 
-    # Scaling factor
+    # Scaling
     scale = r_b / r_a
 
-    x_a *= scale*SF
-    y_a *= scale*SF
+    x_a *= scale*scale_factor
+    y_a *= scale*scale_factor
 
     # Translation vector
     dx = x_b - x_a
     dy = y_b - y_a
 
-    return (dx, dy), scale*SF
+    return (dx, dy), scale*scale_factor
 
 
 def apply_transform_scale(data, trans, scale):
@@ -499,7 +497,7 @@ class AntDynamicsEnv(gym.Env):
         into the ant's internal state.
         """
         trail_length = int(trail_len)+2
-        s = np.zeros((trail_length, 2), dtype=float)
+        target = np.zeros((trail_length, 2), dtype=float)
         trail_data = type(self).ant_trail_data
         num_ants = len(trail_data.columns.levels[0])
         # If showing positions of other ants during the trail
@@ -528,7 +526,7 @@ class AntDynamicsEnv(gym.Env):
                 # If this trail is too short to be used, continue the search.
                 if (np.sqrt(dx**2 + dy**2)) < MOVEMENT_THRESHOLD:
                     continue
-                s[0:trail_length] = trail_data[ant_index][start:start + trail_length]
+                target[0:trail_length] = trail_data[ant_index][start:start + trail_length]
                 contains_null = False
                 indices_set.discard(ant_index)
         if others and not contains_null:
@@ -540,12 +538,12 @@ class AntDynamicsEnv(gym.Env):
                 other_ants[trail_index][0:trail_length] = trail_data[other_ant_index][start:start + trail_length]
                 trail_index += 1
 
-        return Ant(s[0]), s, other_ants
+        return Ant(target[0]), target, other_ants
 
 
     def _get_angle_from_trajectory(self, trail, start_time, interval=False):
         theta = -1
-        threshold = 3
+        threshold = 5
         time = start_time + 1
         while time != len(trail) and theta < 0:
             try:
@@ -561,6 +559,16 @@ class AntDynamicsEnv(gym.Env):
 
 
     def _calculate_target_data(self, trail):
+        target_data = {
+            'angle': [],
+            'motion': [],
+            'action': []
+            # ACTION SET:
+            # forward, forward-left, forward-right
+            # backward, backward-left, backward-right
+            # turn-left, turn-right
+            # stop
+        }
         target_data = []
         time = 0
         prev_polarity = -1
@@ -638,14 +646,14 @@ class AntDynamicsEnv(gym.Env):
         Calculate the reward given the focal ant and the accuracy of its behaviour
         over the trial, given the source data as the ground truth.
         """
-        if REWARD_TYPE == 'trail':
+        if REWARD_TYPE.lower() == 'trail':
             reward = self._calculate_area_between_trails(
                 self.ant_trail,
                 self.target_trail
             )
 
             return reward * -1
-        elif REWARD_TYPE == 'action':
+        elif REWARD_TYPE.lower() == 'action':
             return np.mean(self._compare_actions(actions,
                                          self.target_trail,
                                          self.t))
@@ -682,8 +690,7 @@ class AntDynamicsEnv(gym.Env):
             trail_len=TIME_LIMIT
         )
         self.target_data = self._calculate_target_data(self.target_trail)
-        self.ant.theta = self._get_angle_from_trajectory(self.target_trail,
-                                                    self.t)
+        self.ant.theta = self._get_angle_from_trajectory(self.target_trail, self.t)
         obs = self.get_observations(self.other_ants[:,self.t])
 
         if self.render_mode == 'human':
@@ -749,12 +756,12 @@ class AntDynamicsEnv(gym.Env):
             return
 
         canvas = pygame.Surface((SCREEN_W, SCREEN_H))
-        canvas.fill((150, 150, 170))
+        canvas.fill((200, 190, 210))
 
         # Project the circular arena
         pygame.draw.circle(
             canvas,
-            (200, 200, 200),
+            (230, 230, 230),
             self.ant_arena[0],
             self.ant_arena[1]
         )
@@ -762,7 +769,7 @@ class AntDynamicsEnv(gym.Env):
         if DRAW_ANT_VISION:
             pygame.draw.circle(
                 canvas,
-                (197, 197, 203),
+                (225, 225, 230),
                 (self.ant.pos.x,
                 self.ant.pos.y),
                 VISION_RANGE
@@ -792,11 +799,25 @@ class AntDynamicsEnv(gym.Env):
         ### DRAW TRAILS FIRST
 
         # Draw projected target trail
-        for pos in self.target_trail:
-            pygame.draw.rect(canvas, (220, 180, 180),
-                            (pos[0] - ANT_DIM.x/2.,
-                             pos[1] - ANT_DIM.y/2.,
-                             ANT_DIM.x, ANT_DIM.y))
+        if REWARD_TYPE.lower() == 'trail':
+            for pos in self.target_trail:
+                pygame.draw.rect(canvas, (220, 180, 180),
+                                (pos[0] - ANT_DIM.x/2.,
+                                pos[1] - ANT_DIM.y/2.,
+                                ANT_DIM.x, ANT_DIM.y))
+        else:
+            try:
+                for pos in self.target_trail[:self.t+1]:
+                    pygame.draw.rect(canvas, (220, 180, 180),
+                                    (pos[0] - ANT_DIM.x/2.,
+                                    pos[1] - ANT_DIM.y/2.,
+                                    ANT_DIM.x, ANT_DIM.y))
+            except IndexError:
+                for pos in self.target_trail:
+                    pygame.draw.rect(canvas, (220, 180, 180),
+                                    (pos[0] - ANT_DIM.x/2.,
+                                    pos[1] - ANT_DIM.y/2.,
+                                    ANT_DIM.x, ANT_DIM.y))
 
         # Draw ant trail
         trail_length = len(self.ant_trail)
