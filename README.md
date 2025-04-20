@@ -1,4 +1,4 @@
-Please see [this repository](https://github.com/toohuman/NEAD) for a more up-to-date implementation and a less standalone codebase for the neuroevolution of any dynamics.
+⚠️ Please see [this repository](https://github.com/toohuman/NEAD) for a more up-to-date implementation and a less standalone codebase for the neuroevolution of any dynamics.
 
 # AntDynamics-Gymnasium
 
