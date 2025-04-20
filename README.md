@@ -1,3 +1,5 @@
+Please see this repository for a more up-to-date implementation and a less standalone codebase for the neuroevolution of any dynamics.
+
 # AntDynamics-Gymnasium
 
 [![arXiv](https://img.shields.io/badge/paper-arxiv-red?style=for-the-badge)](https://arxiv.org/abs/2406.13147)
